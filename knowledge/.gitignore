@@ -1,15 +1,15 @@
-# کلید API
+
 .env
 .env.*
 !.env.example
 
-# محیط و فایل‌های موقت پایتون
+
 .venv/
 venv/
 __pycache__/
 *.pyc
 
-# داده‌ها و خروجی‌ها
+ا
 *.pdf
 *.txt
 !requirements.txt
@@ -17,5 +17,4 @@ __pycache__/
 *_embeddings.json
 data/private/
 
-# لاگ‌ها
 *.log
