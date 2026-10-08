@@ -4,7 +4,7 @@ from pathlib import Path
 
 
 def split_long_text(text, max_words=250, overlap=40):
-    """تقسیم متن بلند با هم‌پوشانی برای حفظ ارتباط قطعه‌ها."""
+    
     words = text.split()
 
     if len(words) <= max_words:
@@ -32,7 +32,7 @@ def chunk_text(text, source, max_words=250, overlap=40):
     if not 0 <= overlap < max_words:
         raise ValueError("overlap باید بین صفر و max_words باشد.")
 
-    # خروجی Cleaning بین رکوردها یک خط خالی دارد
+    
     blocks = re.split(r"\n\s*\n", text.strip())
 
     chunks = []
@@ -44,12 +44,12 @@ def chunk_text(text, source, max_words=250, overlap=40):
         if not block:
             continue
 
-        # عنوان بخش را به‌عنوان metadata نگه می‌داریم
+         
         if re.fullmatch(r"\d{2}\s+[A-Z][A-Z0-9 /&_-]*", block):
             section = block
             continue
 
-        # شناسهٔ رکورد، اگر موجود باشد
+        
         match = re.search(
             r"^(ENTITY_ID|FACILITY_ID|POLICY_ID|MAPPING_ID):\s*(\S+)",
             block,
@@ -58,7 +58,7 @@ def chunk_text(text, source, max_words=250, overlap=40):
 
         record_id = match.group(2) if match else None
 
-        # هم‌پوشانی فقط داخل همان رکورد انجام می‌شود
+        
         parts = split_long_text(block, max_words, overlap)
 
         for part_number, part in enumerate(parts, start=1):
