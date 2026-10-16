@@ -1,3 +1,6 @@
 pypdf
 google-genai
+openai
 python-dotenv
+numpy
+python-telegram-bot>=22,<23

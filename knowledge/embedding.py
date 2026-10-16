@@ -3,11 +3,11 @@ import os
 from pathlib import Path
 
 from dotenv import load_dotenv
-from google import genai
-from google.genai import types
+from openai import OpenAI
 
 
-MODEL = "gemini-embedding-001"
+MODEL = "text-embedding-3-small"
+BASE_URL = "https://api.gapgpt.app/v1"
 
 
 def embed_file(filename):
@@ -20,12 +20,11 @@ def embed_file(filename):
     if not input_path.is_file():
         raise FileNotFoundError(f"فایل پیدا نشد: {input_path}")
 
-    # خواندن کلید از فایل .env کنار کد
     load_dotenv(folder / ".env")
-    api_key = os.getenv("GEMINI_API_KEY")
+    api_key = os.getenv("GAPGPT_API_KEY", "").strip()
 
-    if not api_key or not api_key.strip():
-        raise ValueError("کلید GEMINI_API_KEY تنظیم نشده است.")
+    if not api_key:
+        raise ValueError("کلید GAPGPT_API_KEY تنظیم نشده است.")
 
     chunks = json.loads(
         input_path.read_text(encoding="utf-8-sig")
@@ -34,7 +33,6 @@ def embed_file(filename):
     if not isinstance(chunks, list) or not chunks:
         raise ValueError("فایل ورودی باید لیستی از قطعه‌ها باشد.")
 
-    # بررسی تمام قطعه‌ها قبل از ارسال درخواست
     for index, chunk in enumerate(chunks, start=1):
         if not isinstance(chunk, dict):
             raise ValueError(f"ساختار قطعهٔ {index} نامعتبر است.")
@@ -45,37 +43,47 @@ def embed_file(filename):
             raise ValueError(f"متن قطعهٔ {index} خالی یا نامعتبر است.")
 
     embedded_chunks = []
+    dimensions = None
 
-    with genai.Client(api_key=api_key.strip()) as client:
+    with OpenAI(
+        base_url=BASE_URL,
+        api_key=api_key,
+        timeout=30.0,
+        max_retries=2,
+    ) as client:
         for chunk in chunks:
-            response = client.models.embed_content(
+            response = client.embeddings.create(
                 model=MODEL,
-                contents=chunk["text"],
-                config=types.EmbedContentConfig(
-                    task_type="RETRIEVAL_DOCUMENT",
-                ),
+                input=chunk["text"],
             )
 
-            if not response.embeddings:
+            if not response.data:
                 raise RuntimeError("API برداری برنگرداند.")
 
-            vector = response.embeddings[0].values
+            vector = response.data[0].embedding
 
             if not vector:
                 raise RuntimeError("بردار دریافتی خالی است.")
+
+            if dimensions is None:
+                dimensions = len(vector)
+            elif len(vector) != dimensions:
+                raise RuntimeError("ابعاد بردارها یکسان نیست.")
 
             embedded_chunks.append({
                 **chunk,
                 "embedding": vector,
                 "embedding_model": MODEL,
+                "embedding_provider": "gapgpt",
             })
 
-    # ذخیره فقط پس از موفقیت تمام درخواست‌ها
+    # خروجی قبلی فقط پس از موفقیت تمام درخواست‌ها جایگزین می‌شود
     output_path.write_text(
         json.dumps(
             embedded_chunks,
             ensure_ascii=False,
             indent=2,
+            allow_nan=False,
         ),
         encoding="utf-8",
     )

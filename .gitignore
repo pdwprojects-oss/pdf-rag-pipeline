@@ -1,20 +1,22 @@
-
+# Secrets
 .env
 .env.*
 !.env.example
 
-
+# Python
 .venv/
 venv/
 __pycache__/
 *.pyc
 
-ا
+# Data and generated outputs
 *.pdf
 *.txt
 !requirements.txt
 *_chunks.json
 *_embeddings.json
+last_answer.json
 data/private/
 
+# Logs
 *.log

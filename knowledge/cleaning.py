@@ -2,22 +2,24 @@ import re
 from pathlib import Path
 
 
-# فیلدهایی مثل FACILITY_ID، HEAD OFFICE و AFTER HOURS
+# پشتیبانی از نام فیلدهای دارای عدد، مثل NOISY_RECORD_03
 FIELD_PATTERN = re.compile(
-    r"(?<!\S)([A-Z][A-Z_]*(?:[ \t]+[A-Z][A-Z_]*)*)"
+    r"(?<!\S)([A-Z][A-Z0-9_]*(?:[ \t]+[A-Z][A-Z0-9_]*)*)"
     r"[ \t]*[:=][ \t]*"
 )
 
 # عنوان بخش‌ها، مثل 01 COMPANY PROFILE
-HEADING_PATTERN = re.compile(r"^\d{2}\s+[A-Z][A-Z0-9 /&_-]*$")
+HEADING_PATTERN = re.compile(
+    r"^\d{2}\s+[A-Z][A-Z0-9 /&_-]*$"
+)
 
 HEADER = "MEDIBRIDGE CARE NETWORK | SYNTHETIC RAG DATASET"
+
 FOOTER = (
     "FICTIONAL DATA - FOR TEXT CLEANING / RAG PRACTICE ONLY"
     " - NOT A REAL HEALTHCARE DIRECTORY"
 )
 
-# شروع رکوردهای جدید
 RECORD_STARTS = {
     "ENTITY_ID",
     "POLICY_ID",
@@ -30,25 +32,28 @@ RECORD_STARTS = {
 
 
 def clean_text(text):
+    """پاک‌سازی متن با حفظ عنوان‌ها، فیلدها و مرز رکوردها."""
     lines = []
 
     for raw_line in text.splitlines():
-        # حذف فاصله‌های اضافی، تب و فاصله‌های ابتدا و انتها
         line = re.sub(r"\s+", " ", raw_line).strip()
 
         if not line:
             continue
 
+        # حذف سربرگ و پابرگ تکراری
         if line in {HEADER, FOOTER}:
             continue
 
+        # حذف شماره صفحه
         if re.fullmatch(r"PAGE\s+\d+", line):
             continue
 
+        # حذف خطوط جداکننده
         if re.fullmatch(r"[=_-]{3,}", line):
             continue
 
-        # حفظ عنوان بخش‌ها
+        # حفظ عنوان بخش
         if HEADING_PATTERN.fullmatch(line):
             lines.append(("heading", line))
             continue
@@ -56,15 +61,16 @@ def clean_text(text):
         matches = list(FIELD_PATTERN.finditer(line))
 
         if not matches:
-            # اتصال ادامهٔ متن به فیلد قبلی، حتی در مرز صفحات
+            # اتصال ادامهٔ متن به فیلد قبلی
             if lines and lines[-1][0] == "field":
                 kind, previous = lines[-1]
                 lines[-1] = (kind, f"{previous} {line}")
             else:
                 lines.append(("text", line))
+
             continue
 
-        # متن قبل از اولین فیلد، اگر وجود داشته باشد
+        # نگهداری متن قبل از اولین فیلد
         prefix = line[:matches[0].start()].strip()
 
         if prefix:
@@ -74,20 +80,18 @@ def clean_text(text):
             else:
                 lines.append(("text", prefix))
 
-        # جداسازی فیلدهای هم‌خط و یکسان‌سازی : و =
+        # جداسازی فیلدهای هم‌خط و یکسان‌سازی جداکننده‌ها
         for index, match in enumerate(matches):
             key = match.group(1).strip()
 
-            end = (
-                matches[index + 1].start()
-                if index + 1 < len(matches)
-                else len(line)
-            )
+            if index + 1 < len(matches):
+                end = matches[index + 1].start()
+            else:
+                end = len(line)
 
             value = line[match.end():end].strip()
             lines.append(("field", f"{key}: {value}"))
 
-    # فاصله‌گذاری میان بخش‌ها و رکوردها
     output = []
 
     for kind, line in lines:
@@ -98,6 +102,7 @@ def clean_text(text):
             or key.startswith("NOISY_RECORD_")
         )
 
+        # جداسازی بخش‌ها و رکوردها با یک خط خالی
         if output and (kind == "heading" or starts_record):
             if output[-1] != "":
                 output.append("")
@@ -117,7 +122,6 @@ def clean_txt_file(filename):
     if not input_path.is_file():
         raise FileNotFoundError(f"فایل پیدا نشد: {input_path}")
 
-    # جلوگیری از نام‌هایی مثل clean_clean
     stem = input_path.stem.removesuffix("_clean")
     output_path = input_path.with_name(f"{stem}_clean.txt")
 
@@ -132,9 +136,15 @@ def clean_txt_file(filename):
     if not cleaned_text:
         raise ValueError("متن فایل پس از پاک‌سازی خالی است.")
 
-    output_path.write_text(cleaned_text + "\n", encoding="utf-8")
+    output_path.write_text(
+        cleaned_text + "\n",
+        encoding="utf-8",
+    )
+
     return output_path
 
 
 if __name__ == "__main__":
-    clean_txt_file("synthetic_medibridge_healthcare_rag_dataset.txt")
+    clean_txt_file(
+        "synthetic_medibridge_healthcare_rag_dataset.txt"
+    )
